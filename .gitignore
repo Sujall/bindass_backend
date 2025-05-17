@@ -1,0 +1,38 @@
+# Node.js dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# dotenv environment variables
+.env
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Optional cache files
+.cache/
+dist/
+build/
+tmp/
+temp/
+
+# MongoDB dump files
+dump/
+
+# Coverage reports
+coverage/
+
+# Uploaded files (if any are handled locally)
+uploads/

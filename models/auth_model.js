@@ -34,6 +34,14 @@ const userSchema = new Schema({
     enum: ["user", "admin"],
     default: "user",
   },
+  walletBalance: {
+    type: Number,
+    default: 0,
+  },
+  profileImage: {
+    type: String,
+  },
+  createdAt: { type: Date, default: Date.now },
 });
 
 const User = mongoose.model("User", userSchema);

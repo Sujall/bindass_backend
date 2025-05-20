@@ -97,7 +97,6 @@ export async function loginUser(req, res) {
   res.json({ token, message: "Logged in Successfully" });
 }
 
-
 export async function forgotPassword(req, res) {
   const { email } = req.body;
   const user = await findOne({ email });
@@ -144,4 +143,3 @@ export async function logoutUser(req, res) {
     res.status(500).json({ message: "Server error" });
   }
 }
-

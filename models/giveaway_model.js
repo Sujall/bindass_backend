@@ -1,36 +1,66 @@
 import mongoose, { Schema } from "mongoose";
 
-const giveawaySchema = new Schema({
-  title: {
+const participantSchema = new Schema({
+  userId: { 
+    type: mongoose.Schema.Types.ObjectId, ref: "User", 
+    required: true 
+  },
+  transactionId: { 
+    type: String, 
+    required: true 
+  },
+  registeredAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  status: {
     type: String,
-    required: true,
+    enum: ["pending", "verified", "rejected"],
+    default: "pending",
   },
-  type: {
-    type: String,
-    enum: ["upcoming", "ongoing", "expired"],
-    default: "upcoming",
+  verifiedAt: { 
+    type: Date 
   },
-  description: {
-    type: String,
+  verifiedBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User" 
   },
-  bannerUrl: {
-    type: String,
-  },
-  fee: {
-    type: Number,
-    required: true,
-  },
-  totalSlots: {
-    type: Number,
-    required: true,
-  },
-  participants: [
-    {
-      userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      registeredAt: { type: Date, default: Date.now },
-    },
-  ],
 });
+
+const giveawaySchema = new Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: ["upcoming", "ongoing", "expired"],
+      default: "upcoming",
+    },
+    description: {
+      type: String,
+    },
+    bannerUrl: {
+      type: String,
+    },
+    qrCodeUrl: {
+      type: String, // URL of the uploaded QR code image
+    },
+    fee: {
+      type: Number,
+      required: true,
+    },
+    totalSlots: {
+      type: Number,
+      required: true,
+    },
+    participants: [participantSchema],
+  },
+  {
+    timestamps: true,
+  }
+);
 
 const Giveaway = mongoose.model("Giveaway", giveawaySchema);
 

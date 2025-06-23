@@ -36,6 +36,7 @@ export async function initiateRegistration(req, res) {
     await user.save();
 
     try {
+      console.log("OTP Send is as: ", otp)
       await sendMail({
         from: '"Giveaway App" <no-reply@giveaway.com>',
         to: email,

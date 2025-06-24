@@ -1,7 +1,7 @@
 import { generateOTP } from "../utils/otp.js";
-import sendMail from "../config/smtp.js";
 import jwt from "jsonwebtoken";
 import User from "../models/auth_model.js";
+import sendMail from "../config/smtp.js"
 
 const { sign, verify } = jwt;
 
@@ -38,7 +38,7 @@ export async function initiateRegistration(req, res) {
     try {
       console.log("OTP Send is as: ", otp)
       await sendMail({
-        from: '"Giveaway App" <no-reply@giveaway.com>',
+        from: '"Giveaway App" <bindaaspay@gmail.com>',
         to: email,
         subject: "Your OTP Code",
         text: `Your OTP is ${otp}`,

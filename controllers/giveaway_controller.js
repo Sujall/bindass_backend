@@ -66,6 +66,7 @@ const participateForGiveaway = async (req, res) => {
     const alreadyRegistered = giveaway.participants.some(
       (p) => p.userId.toString() === user._id.toString()
     );
+    
     if (alreadyRegistered) {
       return res.status(400).json({ message: "Already registered" });
     }

@@ -12,12 +12,9 @@ export async function updateProfile(req, res) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
-    const { fullName, mobile, address, profileImage } = req.body;
+    const { fullName, mobile, address } = req.body;
 
     const updateData = { fullName, mobile, address };
-
-    // Allow profileImage update only if provided
-    if (profileImage) updateData.profileImage = profileImage;
 
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
       new: true,
@@ -35,7 +32,6 @@ export async function updateProfile(req, res) {
         email: updatedUser.email, // not editable
         address: updatedUser.address,
         role: updatedUser.role,
-        profileImage: updatedUser.profileImage,
       },
     });
   } catch (error) {

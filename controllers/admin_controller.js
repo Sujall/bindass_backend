@@ -1,48 +1,39 @@
 import Giveaway from "../models/giveaway_model.js";
 
-const createGiveaway = async (req, res) => {
+export const createGiveaway = async (req, res) => {
   try {
     const {
       title,
-      type,
+      subTitle,
+      endDate,
       description,
       bannerUrl,
       qrCodeUrl,
       fee,
       totalSlots,
-      startTime,
-      endTime,
+      categories,
     } = req.body;
 
     // Required fields validation
-    if (!title || !fee || !totalSlots || !startTime || !endTime || !qrCodeUrl) {
+    if (!title || !subTitle || !endDate || !fee || !totalSlots || !qrCodeUrl) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    const parsedStart = new Date(startTime);
-    const parsedEnd = new Date(endTime);
-
-    if (isNaN(parsedStart) || isNaN(parsedEnd)) {
-      return res.status(400).json({ message: "Invalid start or end time" });
-    }
-
-    // Optional: enforce time logic (e.g., start before end)
-    if (parsedStart >= parsedEnd) {
-      return res
-        .status(400)
-        .json({ message: "Start time must be before end time" });
+    const parsedEndDate = new Date(endDate);
+    if (isNaN(parsedEndDate)) {
+      return res.status(400).json({ message: "Invalid end date format" });
     }
 
     const giveaway = await Giveaway.create({
       title,
-      type,
+      subTitle,
+      endDate: parsedEndDate,
       description,
       bannerUrl,
       qrCodeUrl,
       fee,
       totalSlots,
-      startTime: parsedStart,
-      endTime: parsedEnd,
+      categories,
       participants: [],
     });
 
@@ -54,5 +45,3 @@ const createGiveaway = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-export { createGiveaway };

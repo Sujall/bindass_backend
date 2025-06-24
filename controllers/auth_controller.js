@@ -82,8 +82,12 @@ export async function completeRegistration(req, res) {
 }
 
 export async function loginUser(req, res) {
+
+
   const { email, password } = req.body;
 
+  console.log("Login Body", req.body)
+  
   const user = await User.findOne({ email });
 
   if (!user || user.password !== password)
@@ -95,6 +99,9 @@ export async function loginUser(req, res) {
   const token = sign({ id: user._id }, process.env.JWT_SECRET, {
     expiresIn: "1d",
   });
+
+  console.log("Login Response", res.data);
+
   res.json({ token, message: "Logged in Successfully" });
 }
 

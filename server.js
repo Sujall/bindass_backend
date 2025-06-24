@@ -16,6 +16,7 @@ connectDB();
 
 // Middlewares
 app.use(cors());
+
 app.use(json()); // for parsing application/json
 app.use(cookieParser());
 

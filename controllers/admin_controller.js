@@ -1,3 +1,4 @@
+import Media from "../models/banner_model.js";
 import Giveaway from "../models/giveaway_model.js";
 
 export const createGiveaway = async (req, res) => {
@@ -42,6 +43,22 @@ export const createGiveaway = async (req, res) => {
       .json({ message: "Giveaway created successfully", giveaway });
   } catch (err) {
     console.error("Create giveaway error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const uploadBanner = async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const media = await Media.create({ url });
+
+    return res.status(201).json({ message: "Banner uploaded", media });
+  } catch (err) {
+    console.error("Banner upload error:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

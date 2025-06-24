@@ -6,21 +6,21 @@ const getAllGiveaways = async (req, res) => {
   try {
     const role = req.user?.role || "user"; // Default to 'user'
 
-    const giveaways = await Giveaway.find({}).sort({ startTime: -1 });
+    const giveaways = await Giveaway.find({}).sort({ createdAt: -1 });
 
     const formattedGiveaways = giveaways.map(g => ({
       id: g._id,
       title: g.title,
-      type: g.type,
+      subTitle: g.subTitle,
       description: g.description,
-      qrCodeUrl: g.qrCodeUrl,
       bannerUrl: g.bannerUrl,
+      qrCodeUrl: g.qrCodeUrl,
       fee: g.fee,
       totalSlots: g.totalSlots,
-      startTime: g.startTime,
-      endTime: g.endTime,
+      endDate: g.endDate,
+      categories: g.categories,
+      numberOfWinners: g.numberOfWinners,
       participantsCount: g.participants?.length || 0,
-      // qrCodeUrl is intentionally excluded here
     }));
 
     res.status(200).json({
@@ -33,6 +33,43 @@ const getAllGiveaways = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+const getGiveawayById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const giveaway = await Giveaway.findById(id);
+
+    if (!giveaway) {
+      return res.status(404).json({ message: "Giveaway not found" });
+    }
+
+    const formattedGiveaway = {
+      id: giveaway._id,
+      title: giveaway.title,
+      subTitle: giveaway.subTitle,
+      description: giveaway.description,
+      bannerUrl: giveaway.bannerUrl,
+      qrCodeUrl: giveaway.qrCodeUrl,
+      fee: giveaway.fee,
+      totalSlots: giveaway.totalSlots,
+      endDate: giveaway.endDate,
+      categories: giveaway.categories,
+      numberOfWinners: giveaway.numberOfWinners,
+      participantsCount: giveaway.participants?.length || 0,
+    };
+
+    res.status(200).json({
+      message: "Giveaway fetched successfully",
+      giveaway: formattedGiveaway
+    });
+
+  } catch (err) {
+    console.error("Fetch giveaway by ID error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 const participateForGiveaway = async (req, res) => {
   const { giveawayId, transactionId, email } = req.body;
@@ -140,4 +177,4 @@ const getUserGiveawayHistory = async (req, res) => {
   }
 };
 
-export { participateForGiveaway, getUserGiveawayHistory, getAllGiveaways };
+export { participateForGiveaway, getUserGiveawayHistory, getAllGiveaways, getGiveawayById };

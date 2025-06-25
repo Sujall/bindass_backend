@@ -1,5 +1,7 @@
+import sendMail from "../config/smtp.js";
 import Media from "../models/banner_model.js";
 import Giveaway from "../models/giveaway_model.js";
+import Participant from "../models/giveaway_model.js";
 
 export const createGiveaway = async (req, res) => {
   try {
@@ -43,6 +45,73 @@ export const createGiveaway = async (req, res) => {
       .json({ message: "Giveaway created successfully", giveaway });
   } catch (err) {
     console.error("Create giveaway error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const updateParticipantStatus = async (req, res) => {
+  try {
+    const { participantId } = req.params;
+    const { status } = req.body;
+
+    if (!["verified", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const update = { status };
+    if (status === "verified") update.verifiedAt = new Date();
+
+    const participant = await Participant.findByIdAndUpdate(
+      participantId,
+      update,
+      { new: true }
+    ).populate("userId", "email name");
+
+    if (!participant) {
+      return res.status(404).json({ message: "Participant not found" });
+    }
+
+    // Send email
+    const userEmail = participant.userId.email;
+    const userName = participant.userId.name;
+
+    let subject, html;
+
+    if (status === "verified") {
+      subject = "🎉 Your participation has been verified!";
+      html = `<p>Hi ${userName},</p><p>Your transaction ID <b>${participant.transactionId}</b> has been <strong style="color:green;">verified</strong>. You're now officially in the giveaway!</p>`;
+    } else {
+      subject = "❌ Participation rejected";
+      html = `<p>Hi ${userName},</p><p>We're sorry to inform you that your transaction ID <b>${participant.transactionId}</b> has been <strong style="color:red;">rejected</strong>. Please contact support if you think this is an error.</p>`;
+    }
+
+    await sendMail({ to: userEmail, subject, html });
+
+    return res
+      .status(200)
+      .json({ message: "Status updated and email sent", participant });
+  } catch (err) {
+    console.error("Update participant status error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getGiveawayParticipants = async (req, res) => {
+  try {
+    const { giveawayId } = req.params;
+
+    const giveaway = await Giveaway.findById(giveawayId).populate({
+      path: "participants",
+      populate: { path: "userId", select: "name email" },
+    });
+
+    if (!giveaway) {
+      return res.status(404).json({ message: "Giveaway not found" });
+    }
+
+    return res.status(200).json({ participants: giveaway.participants });
+  } catch (err) {
+    console.error("Fetch participants error:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

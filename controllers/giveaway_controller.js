@@ -1,6 +1,7 @@
-import Giveaway from "../models/giveaway_model.js";
+import sendMail from "../config/smtp.js";
 import User from "../models/auth_model.js";
-import mongoose from "mongoose";
+import Giveaway from "../models/giveaway_model.js";
+import Participant from "../models/participant_model.js";
 
 const getAllGiveaways = async (req, res) => {
   try {
@@ -8,7 +9,7 @@ const getAllGiveaways = async (req, res) => {
 
     const giveaways = await Giveaway.find({}).sort({ createdAt: -1 });
 
-    const formattedGiveaways = giveaways.map(g => ({
+    const formattedGiveaways = giveaways.map((g) => ({
       id: g._id,
       title: g.title,
       subTitle: g.subTitle,
@@ -25,9 +26,8 @@ const getAllGiveaways = async (req, res) => {
 
     res.status(200).json({
       message: "Giveaways fetched successfully",
-      giveaways: formattedGiveaways
+      giveaways: formattedGiveaways,
     });
-
   } catch (err) {
     console.error("Fetch giveaways error:", err);
     res.status(500).json({ message: "Server error" });
@@ -61,15 +61,13 @@ const getGiveawayById = async (req, res) => {
 
     res.status(200).json({
       message: "Giveaway fetched successfully",
-      giveaway: formattedGiveaway
+      giveaway: formattedGiveaway,
     });
-
   } catch (err) {
     console.error("Fetch giveaway by ID error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 const participateForGiveaway = async (req, res) => {
   const { giveawayId, transactionId, email } = req.body;
@@ -91,11 +89,12 @@ const participateForGiveaway = async (req, res) => {
     }
 
     const now = new Date();
-    if (now < giveaway.startTime) {
+
+    if (giveaway.startTime && now < giveaway.startTime) {
       return res.status(400).json({ message: "Giveaway is not open yet" });
     }
 
-    if (now > giveaway.endTime) {
+    if (now > giveaway.endDate) {
       return res.status(400).json({ message: "Giveaway has ended" });
     }
 
@@ -103,7 +102,7 @@ const participateForGiveaway = async (req, res) => {
     const alreadyRegistered = giveaway.participants.some(
       (p) => p.userId.toString() === user._id.toString()
     );
-    
+
     if (alreadyRegistered) {
       return res.status(400).json({ message: "Already registered" });
     }
@@ -118,14 +117,34 @@ const participateForGiveaway = async (req, res) => {
       userId: user._id,
       transactionId,
       registeredAt: now,
-      status: "pending"
+      status: "pending",
     });
 
     await giveaway.save();
 
+    // Send participation confirmation email
+    const subject = "✅ Giveaway Participation Received!";
+    const html = `
+      <p>Hi ${user.name || "there"},</p>
+      <p>Your participation in the giveaway <strong>${
+        giveaway.title
+      }</strong> has been received.</p>
+      <p><strong>Transaction ID:</strong> ${transactionId}</p>
+      <p>Status: <span style="color: orange;">Pending Verification</span></p>
+      <p>We will notify you once your entry is verified.</p>
+      <br/>
+      <p>Thank you for participating!</p>
+    `;
+
+    await sendMail({
+      to: user.email,
+      subject,
+      html,
+    });
+
     return res.status(200).json({
       message: "Registered successfully, awaiting verification",
-      status: "pending"
+      status: "pending",
     });
   } catch (err) {
     console.error("Giveaway registration error:", err);
@@ -135,46 +154,25 @@ const participateForGiveaway = async (req, res) => {
 
 const getUserGiveawayHistory = async (req, res) => {
   const userId = req.user._id;
-  const now = new Date();
 
   try {
-    // Find all giveaways where this user participated
-    const objectUserId = new mongoose.Types.ObjectId(userId);
+    const participation = await Participant.find({ userId })
+      .populate({
+        path: "giveawayId", // ensure your Participant schema has this field
+        select: "title subTitle endDate bannerUrl fee categories", // select fields you want to return
+      })
+      .sort({ registeredAt: -1 });
 
-    const giveaways = await Giveaway.find({
-      "participants.userId": objectUserId,
-    }).sort({ startTime: -1 });
-
-    const active = [];
-    const completed = [];
-    const upcoming = [];
-
-    giveaways.forEach((giveaway) => {
-      if (now < giveaway.startTime) {
-        upcoming.push(giveaway); // Not started yet
-      } else if (now >= giveaway.startTime && now <= giveaway.endTime) {
-        active.push(giveaway); // Ongoing
-      } else if (now > giveaway.endTime) {
-        completed.push(giveaway); // Time ended
-      }
-    });
-
-    console.log("Current User ID:", req.user.id);
-
-    console.log("Giveaways Found:", giveaways.length);
-
-    const allGiveaways = await Giveaway.find({});
-    console.log(JSON.stringify(allGiveaways, null, 2));
-
-    return res.status(200).json({
-      active,
-      completed,
-      upcoming,
-    });
+    return res.status(200).json({ participation });
   } catch (err) {
-    console.error("Error fetching giveaway history:", err);
+    console.error("Error fetching user giveaway participation:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-export { participateForGiveaway, getUserGiveawayHistory, getAllGiveaways, getGiveawayById };
+export {
+  getAllGiveaways,
+  getGiveawayById,
+  getUserGiveawayHistory,
+  participateForGiveaway,
+};

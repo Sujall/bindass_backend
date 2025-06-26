@@ -1,5 +1,29 @@
 import mongoose, { Schema } from "mongoose";
 
+const participantSchema = new Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  transactionId: {
+    type: String,
+    required: true,
+  },
+  registeredAt: {
+    type: Date,
+    default: Date.now,
+  },
+  status: {
+    type: String,
+    enum: ["pending", "verified", "rejected"],
+    default: "pending",
+  },
+  verifiedAt: {
+    type: Date,
+  },
+});
+
 const giveawaySchema = new Schema({
   title: {
     type: String,
@@ -16,7 +40,7 @@ const giveawaySchema = new Schema({
   description: {
     type: String,
   },
-  bannerUrl: {
+  giveawayImageUrl: {
     type: String,
   },
   qrCodeUrl: {
@@ -39,10 +63,7 @@ const giveawaySchema = new Schema({
     type: Number,
     default: 1,
   },
-  participants: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "Participant" 
-  }],
+  participants: [participantSchema],
   createdAt: {
     type: Date,
     default: Date.now,

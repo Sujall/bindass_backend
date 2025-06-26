@@ -1,7 +1,7 @@
+import transporter from "../config/smtp.js";
 import sendMail from "../config/smtp.js";
 import User from "../models/auth_model.js";
 import Giveaway from "../models/giveaway_model.js";
-import Participant from "../models/participant_model.js";
 
 const getAllGiveaways = async (req, res) => {
   try {
@@ -14,7 +14,7 @@ const getAllGiveaways = async (req, res) => {
       title: g.title,
       subTitle: g.subTitle,
       description: g.description,
-      bannerUrl: g.bannerUrl,
+      giveawayImageUrl: g.giveawayImageUrl,
       qrCodeUrl: g.qrCodeUrl,
       fee: g.fee,
       totalSlots: g.totalSlots,
@@ -49,7 +49,7 @@ const getGiveawayById = async (req, res) => {
       title: giveaway.title,
       subTitle: giveaway.subTitle,
       description: giveaway.description,
-      bannerUrl: giveaway.bannerUrl,
+      giveawayImageUrl: giveaway.giveawayImageUrl,
       qrCodeUrl: giveaway.qrCodeUrl,
       fee: giveaway.fee,
       totalSlots: giveaway.totalSlots,
@@ -70,10 +70,11 @@ const getGiveawayById = async (req, res) => {
 };
 
 const participateForGiveaway = async (req, res) => {
-  const { giveawayId, transactionId, email } = req.body;
+  const { giveawayId, transactionId } = req.body;
+  const email = req.user?.email;
+  const fullName = req.user?.fullName;
 
   try {
-    // Validate required inputs
     if (!giveawayId || !transactionId || !email) {
       return res.status(400).json({ message: "Missing required fields" });
     }
@@ -98,7 +99,6 @@ const participateForGiveaway = async (req, res) => {
       return res.status(400).json({ message: "Giveaway has ended" });
     }
 
-    // Check if user already registered
     const alreadyRegistered = giveaway.participants.some(
       (p) => p.userId.toString() === user._id.toString()
     );
@@ -107,14 +107,14 @@ const participateForGiveaway = async (req, res) => {
       return res.status(400).json({ message: "Already registered" });
     }
 
-    // Check for available slots
     if (giveaway.participants.length >= giveaway.totalSlots) {
       return res.status(400).json({ message: "Giveaway is full" });
     }
 
-    // Register user with pending status
     giveaway.participants.push({
       userId: user._id,
+      email,
+      fullName,
       transactionId,
       registeredAt: now,
       status: "pending",
@@ -122,24 +122,20 @@ const participateForGiveaway = async (req, res) => {
 
     await giveaway.save();
 
-    // Send participation confirmation email
-    const subject = "✅ Giveaway Participation Received!";
-    const html = `
-      <p>Hi ${user.name || "there"},</p>
-      <p>Your participation in the giveaway <strong>${
-        giveaway.title
-      }</strong> has been received.</p>
-      <p><strong>Transaction ID:</strong> ${transactionId}</p>
-      <p>Status: <span style="color: orange;">Pending Verification</span></p>
-      <p>We will notify you once your entry is verified.</p>
-      <br/>
-      <p>Thank you for participating!</p>
-    `;
-
-    await sendMail({
+    await transporter.sendMail({
+      from: '"Bindaas" <bindaaspay@gmail.com>',
       to: user.email,
-      subject,
-      html,
+      subject: "✅ Giveaway Participation Received!",
+      html: `
+        <p>Hi ${user.name || "there"},</p>
+        <p>Your participation in the giveaway <strong>${
+          giveaway.title
+        }</strong> has been received.</p>
+        <p><strong>Transaction ID:</strong> ${transactionId}</p>
+        <p>Status: <span style="color: orange;">Pending Verification</span></p>
+        <br/>
+        <p>Thank you for participating!</p>
+      `,
     });
 
     return res.status(200).json({
@@ -159,7 +155,7 @@ const getUserGiveawayHistory = async (req, res) => {
     const participation = await Participant.find({ userId })
       .populate({
         path: "giveawayId", // ensure your Participant schema has this field
-        select: "title subTitle endDate bannerUrl fee categories", // select fields you want to return
+        select: "title subTitle endDate giveawayImageUrl fee categories", // select fields you want to return
       })
       .sort({ registeredAt: -1 });
 

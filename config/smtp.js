@@ -1,12 +1,21 @@
-import { createTransport } from "nodemailer";
+import nodemailer from "nodemailer";
 
-const sendMail = createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // Required for port 465
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: "bindaaspay@gmail.com",
+    pass: "nqouaxbsffpoehij",
   },
 });
 
-export default sendMail;
+export default transporter;
+
+transporter.verify((err, success) => {
+  if (err) {
+    console.error("SMTP Error:", err);
+  } else {
+    console.log("SMTP server ready to send emails");
+  }
+});

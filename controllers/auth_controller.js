@@ -1,7 +1,7 @@
 import { generateOTP } from "../utils/otp.js";
 import jwt from "jsonwebtoken";
 import User from "../models/auth_model.js";
-import sendMail from "../config/smtp.js"
+import transporter from "../config/smtp.js";
 
 const { sign, verify } = jwt;
 
@@ -37,8 +37,8 @@ export async function initiateRegistration(req, res) {
 
     try {
       console.log("OTP Send is as: ", otp)
-      await sendMail({
-        from: '"Giveaway App" <bindaaspay@gmail.com>',
+      await transporter.sendMail({
+        from: '"Bindaas" <bindaaspay@gmail.com>',
         to: email,
         subject: "Your OTP Code",
         text: `Your OTP is ${otp}`,
@@ -102,12 +102,12 @@ export async function loginUser(req, res) {
 
   console.log("Login Response", res.data);
 
-  res.json({ token, message: "Logged in Successfully" });
+  res.json({ user, token, message: "Logged in Successfully" });
 }
 
 export async function forgotPassword(req, res) {
   const { email } = req.body;
-  const user = await findOne({ email });
+  const user = await User.findOne({ email });
 
   if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -116,8 +116,8 @@ export async function forgotPassword(req, res) {
   user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  await sendMail({
-    from: '"Giveaway App" <no-reply@giveaway.com>',
+  await transporter.sendMail({
+    from: '"Bindaas" <no-reply@giveaway.com>',
     to: email,
     subject: "Reset Password OTP",
     text: `Use this OTP to reset your password: ${otp}`,
@@ -128,7 +128,7 @@ export async function forgotPassword(req, res) {
 
 export async function resetPassword(req, res) {
   const { email, otp, newPassword } = req.body;
-  const user = await findOne({ email });
+  const user = await User.findOne({ email });
 
   if (!user || user.otp !== otp || user.otpExpires < Date.now())
     return res.status(400).json({ message: "Invalid or expired OTP" });

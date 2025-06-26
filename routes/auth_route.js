@@ -23,10 +23,10 @@ router.post("/login", loginUser);
 router.post("/logout", logoutUser);
 
 // @route   POST /api/auth/forgot-password
-router.post("/forgotPassword", forgotPassword);
+router.post("/forgot-password", forgotPassword);
 
 // @route   POST /api/auth/reset-password
-router.post("/resetPassword", resetPassword);
+router.post("/reset-password", resetPassword);
 
 // @route PUT /api/profile/updateProfile
 router.put("/updateProfile", updateProfile)

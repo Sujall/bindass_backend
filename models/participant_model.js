@@ -6,6 +6,11 @@ const participantSchema = new Schema({
     ref: "User",
     required: true,
   },
+  giveawayId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Giveaway",
+    required: true,
+  },
   transactionId: {
     type: String,
     required: true,

@@ -5,6 +5,7 @@ import {
   getAllGiveaways,
   getGiveawayById,
   getUserGiveawayHistory,
+  getUserGiveawayHistoryById,
   participateForGiveaway,
 } from "../controllers/giveaway_controller.js";
 import Media from "../models/banner_model.js";

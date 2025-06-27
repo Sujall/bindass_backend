@@ -37,11 +37,35 @@ const getGiveawayById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const giveaway = await Giveaway.findById(id);
+    const giveaway = await Giveaway.findById(id)
+      .populate("participants.userId", "fullName email") // Adjust fields as needed
+      .populate("winners", "fullName email"); // Populate winners (User model)
 
     if (!giveaway) {
       return res.status(404).json({ message: "Giveaway not found" });
     }
+
+    const formattedParticipants = giveaway.participants.map((participant) => {
+      const user = participant.userId;
+
+      console.log(user)
+
+      return {
+        userId: user?._id || null,
+        name: user?.fullName || null,
+        email: user?.email || null,
+        transactionId: participant.transactionId,
+        registeredAt: participant.registeredAt,
+        status: participant.status,
+        verifiedAt: participant.verifiedAt,
+        isWinner: participant.isWinner,
+      };
+    });
+    const formattedWinners = giveaway.winners.map((winner) => ({
+      id: winner?._id || null,
+      name: winner?.fullName || null,
+      email: winner?.email || null,
+    }));
 
     const formattedGiveaway = {
       id: giveaway._id,
@@ -55,9 +79,11 @@ const getGiveawayById = async (req, res) => {
       endDate: giveaway.endDate,
       categories: giveaway.categories,
       numberOfWinners: giveaway.numberOfWinners,
-      participantsCount: giveaway.participants?.length || 0,
+      participantsCount: formattedParticipants.length,
+      participantsList: formattedParticipants,
+      winnersList: formattedWinners,
     };
-
+    console.log(giveaway.participants);
     res.status(200).json({
       message: "Giveaway fetched successfully",
       giveaway: formattedGiveaway,
@@ -152,12 +178,16 @@ const getUserGiveawayHistory = async (req, res) => {
 
   try {
     const giveaways = await Giveaway.find({ "participants.userId": userId })
-      .select("title subTitle endDate giveawayImageUrl fee categories participants")
+      .select(
+        "title subTitle endDate giveawayImageUrl fee categories participants"
+      )
       .lean();
 
     // Extract only the relevant participant info for this user
-    const participation = giveaways.map(giveaway => {
-      const participant = giveaway.participants.find(p => p.userId.toString() === userId.toString());
+    const participation = giveaways.map((giveaway) => {
+      const participant = giveaway.participants.find(
+        (p) => p.userId.toString() === userId.toString()
+      );
       return {
         giveaway: {
           _id: giveaway._id,
@@ -185,11 +215,56 @@ const getUserGiveawayHistory = async (req, res) => {
   }
 };
 
+const getUserGiveawayHistoryById = async (req, res) => {
+  const userId = req.params.userId || req.user?._id;
+
+  if (!userId) {
+    return res.status(400).json({ message: "User ID not provided" });
+  }
+
+  try {
+    const giveaways = await Giveaway.find({ "participants.userId": userId })
+      .select(
+        "title subTitle endDate giveawayImageUrl fee categories participants"
+      )
+      .lean();
+
+    const participation = giveaways.map((giveaway) => {
+      const participant = giveaway.participants.find(
+        (p) => p.userId.toString() === userId.toString()
+      );
+
+      return {
+        giveaway: {
+          _id: giveaway._id,
+          title: giveaway.title,
+          subTitle: giveaway.subTitle,
+          endDate: giveaway.endDate,
+          giveawayImageUrl: giveaway.giveawayImageUrl,
+          fee: giveaway.fee,
+          categories: giveaway.categories,
+        },
+        participant: {
+          transactionId: participant.transactionId,
+          status: participant.status,
+          registeredAt: participant.registeredAt,
+          verifiedAt: participant.verifiedAt,
+          isWinner: participant.isWinner,
+        },
+      };
+    });
+
+    res.status(200).json({ participation });
+  } catch (err) {
+    console.error("Error fetching user giveaway participation:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 export {
   getAllGiveaways,
   getGiveawayById,
   getUserGiveawayHistory,
-  participateForGiveaway
+  participateForGiveaway,
+  getUserGiveawayHistoryById,
 };
-

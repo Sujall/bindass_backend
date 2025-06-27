@@ -1,21 +1,30 @@
 import nodemailer from "nodemailer";
+import dotenv from "dotenv";
+dotenv.config();
+
+// Convert port to number if it's coming from a .env file
+const port = parseInt(process.env.SMTP_PORT || "465", 10);
+
+if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  throw new Error("Missing SMTP configuration in environment variables.");
+}
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // Required for port 465
+  host: process.env.SMTP_HOST,
+  port,
+  secure: port === 465, // True for 465, false for other ports (e.g., 587)
   auth: {
-    user: "bindaaspay@gmail.com",
-    pass: "nqouaxbsffpoehij",
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
-export default transporter;
-
-transporter.verify((err, success) => {
-  if (err) {
-    console.error("SMTP Error:", err);
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("SMTP connection failed:", error);
   } else {
-    console.log("SMTP server ready to send emails");
+    console.log("SMTP server is ready to send emails");
   }
 });
+
+export default transporter;

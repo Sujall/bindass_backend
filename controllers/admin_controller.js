@@ -29,26 +29,22 @@ export const createGiveaway = async (req, res) => {
       fee,
       totalSlots,
       categories,
+      giveawayImageUrl,
+      qrCodeUrl,
+      numberOfWinners,
     } = req.body;
 
-    // Required fields validation
     if (!title || !subTitle || !endDate || !fee || !totalSlots) {
-      return res.status(500).json({ message: "Missing required fields" });
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
     const parsedEndDate = new Date(endDate);
     if (isNaN(parsedEndDate)) {
-      return res.status(500).json({ message: "Invalid end date format" });
+      return res.status(400).json({ message: "Invalid end date format" });
     }
 
-    // Get uploaded file URLs from Cloudinary
-    const giveawayImageUrl = req.files?.giveawayImage?.[0]?.path;
-    const qrCodeUrl = req.files?.qrCode?.[0]?.path;
-
     if (!giveawayImageUrl || !qrCodeUrl) {
-      return res
-        .status(500)
-        .json({ message: "Banner and QR Code are required." });
+      return res.status(400).json({ message: "Image URLs are required" });
     }
 
     const giveaway = await Giveaway.create({
@@ -58,6 +54,7 @@ export const createGiveaway = async (req, res) => {
       description,
       giveawayImageUrl,
       qrCodeUrl,
+      numberOfWinners,
       fee,
       totalSlots,
       categories,
@@ -83,28 +80,37 @@ export const updateParticipantStatusByUserId = async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
+    // Prepare the update object
     const update = {
-      "participants.$.status": status,
+      "participants.$[elem].status": status,
     };
+
     if (status === "verified") {
-      update["participants.$.verifiedAt"] = new Date();
+      update["participants.$[elem].verifiedAt"] = new Date();
     }
 
+    // Apply update using arrayFilters to target the correct participant
     const giveaway = await Giveaway.findOneAndUpdate(
       { "participants.userId": userId },
       { $set: update },
-      { new: true }
+      {
+        new: true,
+        arrayFilters: [{ "elem.userId": userId }],
+      }
     ).populate("participants.userId", "email fullName");
 
+    // Find the updated participant
     const participant = giveaway?.participants?.find((p) => {
       const participantId =
         typeof p.userId === "object" ? p.userId._id : p.userId;
       return participantId?.toString() === userId;
     });
+
     if (!participant) {
       return res.status(404).json({ message: "Participant not found" });
     }
 
+    // Compose email
     const userEmail = participant.userId.email;
     const userName = participant.userId.fullName;
 
@@ -117,11 +123,14 @@ export const updateParticipantStatusByUserId = async (req, res) => {
       html = `<p>Hi ${userName},</p><p>We're sorry to inform you that your transaction ID <b>${participant.transactionId}</b> has been <strong style="color:red;">rejected</strong>.</p>`;
     }
 
+    // Send the email
     await transporter.sendMail({ to: userEmail, subject, html });
+
+    console.log("✅ Updated participant:", participant);
 
     return res.status(200).json({ message: "Status updated", participant });
   } catch (err) {
-    console.error("Update participant by userId error:", err);
+    console.error("❌ Update participant by userId error:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

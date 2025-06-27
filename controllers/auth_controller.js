@@ -2,6 +2,7 @@ import { generateOTP } from "../utils/otp.js";
 import jwt from "jsonwebtoken";
 import User from "../models/auth_model.js";
 import transporter from "../config/smtp.js";
+import bcrypt from "bcrypt";
 
 const { sign, verify } = jwt;
 
@@ -36,7 +37,7 @@ export async function initiateRegistration(req, res) {
     await user.save();
 
     try {
-      console.log("OTP Send is as: ", otp)
+      console.log("OTP Send is as: ", otp);
       await transporter.sendMail({
         from: '"Bindaas" <bindaaspay@gmail.com>',
         to: email,
@@ -60,14 +61,17 @@ export async function completeRegistration(req, res) {
   try {
     const user = await User.findOne({ email });
 
-    if (!user)
-      return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.otp !== otp || user.otpExpires < Date.now()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    user.password = password;
+    // Hash the password before saving
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    user.password = hashedPassword;
     user.otp = null;
     user.otpExpires = null;
     user.isVerified = true;
@@ -82,27 +86,31 @@ export async function completeRegistration(req, res) {
 }
 
 export async function loginUser(req, res) {
-
-
   const { email, password } = req.body;
 
-  console.log("Login Body", req.body)
-  
-  const user = await User.findOne({ email });
+  try {
+    const user = await User.findOne({ email });
 
-  if (!user || user.password !== password)
-    return res.status(401).json({ message: "Invalid credentials" });
+    if (!user)
+      return res.status(401).json({ message: "Invalid credentials" });
 
-  if (!user.isVerified)
-    return res.status(403).json({ message: "Please verify your email first" });
+    // Compare input password with hashed password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(401).json({ message: "Invalid credentials" });
 
-  const token = sign({ id: user._id }, process.env.JWT_SECRET, {
-    expiresIn: "1d",
-  });
+    if (!user.isVerified)
+      return res.status(403).json({ message: "Please verify your email first" });
 
-  console.log("Login Response", res.data);
+    const token = sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
-  res.json({ user, token, message: "Logged in Successfully" });
+    res.json({ user, token, message: "Logged in Successfully" });
+  } catch (error) {
+    console.error("Login Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 }
 
 export async function forgotPassword(req, res) {
@@ -128,24 +136,38 @@ export async function forgotPassword(req, res) {
 
 export async function resetPassword(req, res) {
   const { email, otp, newPassword } = req.body;
-  const user = await User.findOne({ email });
 
-  if (!user || user.otp !== otp || user.otpExpires < Date.now())
-    return res.status(400).json({ message: "Invalid or expired OTP" });
+  try {
+    const user = await User.findOne({ email });
 
-  user.password = newPassword;
-  user.otp = null;
-  user.otpExpires = null;
+    if (!user || user.otp !== otp || user.otpExpires < Date.now()) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
 
-  await user.save();
+    // Hash the new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-  res.json({ message: "Password updated successfully" });
+    user.password = hashedPassword;
+    user.otp = null;
+    user.otpExpires = null;
+
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
 }
 
 export async function logoutUser(req, res) {
   try {
     // No token invalidation unless using a blacklist
-    res.status(200).json({ message: "Logged out successfully. Please discard your token on the client." });
+    res.status(200).json({
+      message:
+        "Logged out successfully. Please discard your token on the client.",
+    });
   } catch (error) {
     console.error("Logout Error:", error);
     res.status(500).json({ message: "Server error" });

@@ -1,4 +1,6 @@
+import transporter from "../config/smtp.js";
 import sendMail from "../config/smtp.js";
+import User from "../models/auth_model.js";
 import Media from "../models/banner_model.js";
 import Giveaway from "../models/giveaway_model.js";
 import Participant from "../models/giveaway_model.js";
@@ -43,11 +45,11 @@ export const createGiveaway = async (req, res) => {
     const giveawayImageUrl = req.files?.giveawayImage?.[0]?.path;
     const qrCodeUrl = req.files?.qrCode?.[0]?.path;
 
-    // if (!giveawayImageUrl || !qrCodeUrl) {
-    //   return res
-    //     .status(500)
-    //     .json({ message: "Banner and QR Code are required." });
-    // }
+    if (!giveawayImageUrl || !qrCodeUrl) {
+      return res
+        .status(500)
+        .json({ message: "Banner and QR Code are required." });
+    }
 
     const giveaway = await Giveaway.create({
       title,
@@ -77,22 +79,28 @@ export const updateParticipantStatusByUserId = async (req, res) => {
     const { userId } = req.params;
     const { status } = req.body;
 
-    console.log("Hit updateParticipantStatusByUserId with params:", req.params);
-
-
     if (!["verified", "rejected"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    const update = { status };
-    if (status === "verified") update.verifiedAt = new Date();
+    const update = {
+      "participants.$.status": status,
+    };
+    if (status === "verified") {
+      update["participants.$.verifiedAt"] = new Date();
+    }
 
-    const participant = await Participant.findOneAndUpdate(
-      { userId }, // Lookup by userId instead of _id
-      update,
+    const giveaway = await Giveaway.findOneAndUpdate(
+      { "participants.userId": userId },
+      { $set: update },
       { new: true }
-    ).populate("userId", "email fullName");
+    ).populate("participants.userId", "email fullName");
 
+    const participant = giveaway?.participants?.find((p) => {
+      const participantId =
+        typeof p.userId === "object" ? p.userId._id : p.userId;
+      return participantId?.toString() === userId;
+    });
     if (!participant) {
       return res.status(404).json({ message: "Participant not found" });
     }
@@ -109,7 +117,7 @@ export const updateParticipantStatusByUserId = async (req, res) => {
       html = `<p>Hi ${userName},</p><p>We're sorry to inform you that your transaction ID <b>${participant.transactionId}</b> has been <strong style="color:red;">rejected</strong>.</p>`;
     }
 
-    await sendMail({ to: userEmail, subject, html });
+    await transporter.sendMail({ to: userEmail, subject, html });
 
     return res.status(200).json({ message: "Status updated", participant });
   } catch (err) {
@@ -168,5 +176,85 @@ export const deleteBanner = async (req, res) => {
   } catch (err) {
     console.error("Delete banner error:", err);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const pickWinners = async (req, res) => {
+  try {
+    const { giveawayId } = req.params;
+    const { winnerIds } = req.body; // Array of userIds selected as winners
+
+    if (!winnerIds || !Array.isArray(winnerIds) || winnerIds.length === 0) {
+      return res.status(400).json({ message: "No winners provided." });
+    }
+
+    const giveaway = await Giveaway.findById(giveawayId);
+    if (!giveaway) {
+      return res.status(404).json({ message: "Giveaway not found." });
+    }
+
+    // Filter verified participants
+    const verifiedParticipants = giveaway.participants.filter(
+      (p) => p.status === "verified"
+    );
+
+    const verifiedUserIds = verifiedParticipants.map((p) =>
+      p.userId.toString()
+    );
+
+    // Validate all winners are verified participants
+    const invalid = winnerIds.filter((id) => !verifiedUserIds.includes(id));
+    if (invalid.length > 0) {
+      return res.status(400).json({
+        message: "Some selected winners are not verified participants.",
+        invalid,
+      });
+    }
+
+    // Check if winners already declared
+    if (giveaway.winners.length >= giveaway.numberOfWinners) {
+      return res.status(400).json({ message: "Winners already declared." });
+    }
+
+    // Update participants
+    giveaway.participants = giveaway.participants.map((p) => {
+      if (winnerIds.includes(p.userId.toString())) {
+        return { ...p.toObject(), isWinner: true };
+      }
+      return p;
+    });
+
+    // Save winners
+    giveaway.winners = [...new Set([...giveaway.winners, ...winnerIds])];
+
+    await giveaway.save();
+
+    // Get full user data for email sending
+    const winnerUsers = await User.find({ _id: { $in: winnerIds } });
+
+    // Send emails
+    for (const user of winnerUsers) {
+      await transporter.sendMail({
+        from: `"Bindaas" <bindaaspay@gmail.com}>`,
+        to: user.email,
+        subject: `🎉 You're a Winner of "${giveaway.title}"`,
+        html: `
+          <h3>Congratulations ${user.fullName || user.email}!</h3>
+          <p>You have been selected as a winner for the giveaway: <strong>${
+            giveaway.title
+          }</strong>.</p>
+          <p>Thank you for participating!</p>
+          <p>– Bindaas Team</p>
+        `,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Winners updated and notified successfully.",
+      winners: giveaway.winners,
+    });
+  } catch (error) {
+    console.error("Error picking winners:", error);
+    return res.status(500).json({ message: "Internal server error." });
   }
 };

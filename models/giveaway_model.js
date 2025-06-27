@@ -22,6 +22,10 @@ const participantSchema = new Schema({
   verifiedAt: {
     type: Date,
   },
+  isWinner: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const giveawaySchema = new Schema({
@@ -64,6 +68,12 @@ const giveawaySchema = new Schema({
     default: 1,
   },
   participants: [participantSchema],
+  winners: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
   createdAt: {
     type: Date,
     default: Date.now,

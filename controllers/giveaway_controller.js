@@ -1,5 +1,4 @@
 import transporter from "../config/smtp.js";
-import sendMail from "../config/smtp.js";
 import User from "../models/auth_model.js";
 import Giveaway from "../models/giveaway_model.js";
 
@@ -152,23 +151,45 @@ const getUserGiveawayHistory = async (req, res) => {
   const userId = req.user._id;
 
   try {
-    const participation = await Participant.find({ userId })
-      .populate({
-        path: "giveawayId", // ensure your Participant schema has this field
-        select: "title subTitle endDate giveawayImageUrl fee categories", // select fields you want to return
-      })
-      .sort({ registeredAt: -1 });
+    const giveaways = await Giveaway.find({ "participants.userId": userId })
+      .select("title subTitle endDate giveawayImageUrl fee categories participants")
+      .lean();
 
-    return res.status(200).json({ participation });
+    // Extract only the relevant participant info for this user
+    const participation = giveaways.map(giveaway => {
+      const participant = giveaway.participants.find(p => p.userId.toString() === userId.toString());
+      return {
+        giveaway: {
+          _id: giveaway._id,
+          title: giveaway.title,
+          subTitle: giveaway.subTitle,
+          endDate: giveaway.endDate,
+          giveawayImageUrl: giveaway.giveawayImageUrl,
+          fee: giveaway.fee,
+          categories: giveaway.categories,
+        },
+        participant: {
+          transactionId: participant.transactionId,
+          status: participant.status,
+          registeredAt: participant.registeredAt,
+          verifiedAt: participant.verifiedAt,
+          isWinner: participant.isWinner,
+        },
+      };
+    });
+
+    res.status(200).json({ participation });
   } catch (err) {
     console.error("Error fetching user giveaway participation:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+
 export {
   getAllGiveaways,
   getGiveawayById,
   getUserGiveawayHistory,
-  participateForGiveaway,
+  participateForGiveaway
 };
+

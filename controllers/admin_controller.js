@@ -71,6 +71,32 @@ export const createGiveaway = async (req, res) => {
   }
 };
 
+import Giveaway from "../models/Giveaway.js"; // adjust the path if needed
+
+export const deleteGiveaway = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: "Giveaway ID is required" });
+    }
+
+    const giveaway = await Giveaway.findById(id);
+
+    if (!giveaway) {
+      return res.status(404).json({ message: "Giveaway not found" });
+    }
+
+    await Giveaway.findByIdAndDelete(id);
+
+    return res.status(200).json({ message: "Giveaway deleted successfully" });
+  } catch (err) {
+    console.error("Delete giveaway error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
 export const updateParticipantStatusByUserId = async (req, res) => {
   try {
     const { userId } = req.params;

@@ -10,6 +10,7 @@ import {
   getAllGiveaways,
   updateParticipantStatusByUserId,
   pickWinners,
+  deleteGiveaway,
 } from "../controllers/admin_controller.js";
 import upload from "../config/multer.js";
 import Media from "../models/banner_model.js";
@@ -50,6 +51,13 @@ router.post(
   authMiddleware,
   adminMiddleware,
   createGiveaway
+);
+
+router.delete(
+  "/admin/giveaway/:id",
+  authMiddleware,
+  adminMiddleware,
+  deleteGiveaway
 );
 
 // Update participant status (verified/rejected)

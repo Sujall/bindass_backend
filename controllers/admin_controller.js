@@ -71,8 +71,6 @@ export const createGiveaway = async (req, res) => {
   }
 };
 
-import Giveaway from "../models/Giveaway.js"; // adjust the path if needed
-
 export const deleteGiveaway = async (req, res) => {
   try {
     const { id } = req.params;
